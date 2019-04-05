@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(THREAD_SANITIZER_FLAG "-fsanitize=thread")
 
 add_definitions(-Wno-unused-variable)
 add_definitions(-Wno-unused-but-set-variable)
