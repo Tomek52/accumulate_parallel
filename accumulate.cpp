@@ -12,10 +12,10 @@ T accumulateParallel(InputIt first, InputIt last, T init, int numOfThreads)
     if(numOfElements==0) return init;
     int sizeOfPart = ceil(static_cast<double>(numOfElements)/static_cast<double>(numOfThreads));
     std::vector<std::thread> threadsSum;
-    std::vector<T> partialSum;
+    std::vector<T> partialSum(numOfThreads);
     for(int i = 0; i<numOfThreads; i++) 
     {
-        threadsSum.emplace_back([=, &partialSum](){partialSum.emplace_back(std::accumulate(first,first+sizeOfPart,0));});
+        threadsSum.emplace_back([=, &partialSum](){partialSum[i]=std::accumulate(first,first+sizeOfPart,0);});
         first+=sizeOfPart;
     }
     for(auto && thread: threadsSum) thread.join();
