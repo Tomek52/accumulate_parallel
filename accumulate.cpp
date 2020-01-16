@@ -1,38 +1,64 @@
 #include <iostream>
-#include <vector>
-#include <string>
 #include <thread>
+#include <chrono>
+#include <vector>
 #include <numeric>
 #include <cmath>
 
-template<class InputIt, class T>
-T accumulateParallel(InputIt first, InputIt last, T init, int numOfThreads)
+template<typename It, typename T>
+T accumulateParallel(It first, It last, T init)
 {
-    int numOfElements = std::distance(first,last);
-    if(numOfElements==0) return init;
-    int sizeOfPart = ceil(static_cast<double>(numOfElements)/static_cast<double>(numOfThreads));
-    std::vector<std::thread> threadsSum;
+    auto length = std::distance(first, last);
+    if(length == 0) return init;
+
+    auto hardwareThreads = std::thread::hardware_concurrency();
+    auto numOfThreads = hardwareThreads == 0 ? 2 : hardwareThreads;
+    auto blockSize = ceil(static_cast<double>(length) / numOfThreads);
+
     std::vector<T> partialSum(numOfThreads);
-    for(int i = 0; i<numOfThreads; i++) 
+    std::vector<std::thread> vecOfThreads;
+
+    It beginOfBlock = first;
+    It endOfBlock = first;
+
+    for(auto i = 0; i < numOfThreads - 1; i++)
     {
-        threadsSum.emplace_back([=, &partialSum](){partialSum[i]=std::accumulate(first,first+sizeOfPart,0);});
-        first+=sizeOfPart;
+        std::advance(endOfBlock, blockSize);
+        vecOfThreads.emplace_back([=, &partialSum](){
+                partialSum[i]=std::accumulate(beginOfBlock, endOfBlock, 0);
+        });
+        beginOfBlock = endOfBlock;
     }
-    for(auto && thread: threadsSum) thread.join();
-    return std::accumulate(partialSum.begin(),partialSum.end(),0);
+
+    partialSum[numOfThreads-1]=std::accumulate(beginOfBlock, last, 0);
+
+    for(auto&& thread : vecOfThreads) thread.join();
+
+    return std::accumulate(partialSum.begin(), partialSum.end(), init);
 }
 
 int main()
 {
-    std::vector<double> v(4450001,2);
-    auto x = accumulateParallel(v.begin(), v.end(), 0, 4);
-    if(std::accumulate(v.begin(),v.end(),0)==x)
-    {
-        std::cout<<x<<std::endl;
-    }
-    else
-    {
-        std::cout<<"error"<<std::endl;
-    }
+    std::cout<<"Hardware threads: " <<std::thread::hardware_concurrency()<<std::endl;
+
+    std::vector<int> v(10000000);
+    std::fill(v.begin(), v.end(), 1);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto result = accumulateParallel(v.begin(), v.end(), 0);
+    auto stop = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<float> duration = stop - start;
+    std::cout << "Duration parallel: " << duration.count() << '\n'
+              << "Result: " << result << '\n';
+
+    start = std::chrono::high_resolution_clock::now();
+    result = std::accumulate(v.begin(), v.end(), 0);
+    stop = std::chrono::high_resolution_clock::now();
+
+    duration = stop - start;
+    std::cout << "Duration seq: " << duration.count() << '\n'
+              << "Result: " << result << '\n';
+
     return 0;
 }
